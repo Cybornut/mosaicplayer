@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import math
 import random
+import sys
 import time
 from pathlib import Path
 
@@ -151,6 +152,12 @@ class Tile(QObject):
         start_gpu = policy.mode in (GPU_COPY, GPU_ZERO_COPY) and policy.decide(id(self), 30.0)
         self.uses_gpu = start_gpu
 
+        audio_options = {}
+        if sys.platform == "win32":
+            # Close WASAPI on the playback thread before terminate() runs
+            # on the Qt thread, where WASAPI cleanup can tear down Qt's OLE.
+            audio_options["gapless_audio"] = "no"
+
         self.player = mpv.MPV(
             vo="libmpv",
             hwdec=policy.gpu_hwdec if start_gpu else "no",
@@ -179,6 +186,7 @@ class Tile(QObject):
             sub_auto="no",
             log_handler=_mpv_log if log.isEnabledFor(logging.DEBUG) else None,
             loglevel="v" if log.isEnabledFor(logging.DEBUG) else "warn",
+            **audio_options,
             **SCALING.get(scaling, SCALING["balanced"]),
         )
         self.player.observe_property("video-params", self._on_video_params)
