@@ -370,11 +370,17 @@ class Tile(QObject):
     @_while_open
     def set_muted(self, muted: bool):
         self.entry.muted = muted
-        if not muted:
-            self.player.aid = "auto"
-        self.player.mute = muted
         if muted:
-            self.player.aid = "no"  # skip audio decoding entirely
+            self.player.mute = True
+        track = "no" if muted else "auto"  # skip audio decoding entirely while muted
+        if sys.platform == "win32":
+            # Track deselection closes WASAPI. Keep its COM cleanup on the
+            # playback thread so it cannot tear down Qt's OLE apartment.
+            self.player.command_async("set", "aid", track)
+        else:
+            self.player.aid = track
+        if not muted:
+            self.player.mute = False
 
     @_while_open
     def set_volume(self, volume: float):
